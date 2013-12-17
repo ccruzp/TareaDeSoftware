@@ -225,17 +225,23 @@ class CP(Model):
 
     @classmethod
     def aceptarPorPais(cls,p):
-        aceptados=[]
-        not_accepted = []
-        for x in cls.porPais:
+        aceptados= []
+        no_aceptados = {}
+        for x in Articulo.porPais:
             # m es el minimo entre el limite y numero maximo de articulos por paises
-            m = min(p, len(cls.porPais[x]))
+            m = min(p, len(Articulo.porPais[x]))
             # Lista de aceptados por pais, y la lista ordenada por nota de las no aceptadas
-            aceptados += cls.porPais[x][:m]
-            no_aceptados = cls.porPais[x][m:]
 
-            return list(set(aceptados)), list(sorted(set(no_aceptados), key=lambda x:x.nota))
+            aceptados +=  list(sorted(set(Articulo.porPais[x]),key = lambda x: x.nota))[:m]
+            no_aceptados = list(sorted(set(Articulo.porPais[x]),key = lambda x: x.nota))[m:]
 
+            print x,":\n Aceptados:",aceptados,"\n No aceptados:",no_aceptados,"\n","*"*50
+
+    # @classmethod
+    # def cortePorNota(cls,n1,n2):
+    #     aceptados = []
+    #     no_aceptados = []
+    #     for x in Articulo.objects:
 
 
 class Clei(Model):
@@ -411,7 +417,6 @@ class Articulo(Model):
 
     @classmethod
     def agruparPorPais(cls):
-        print 'sdasdsd'
         cls.porPais ={}
         for articulo in cls.objects.values():
             for autor in articulo.autores:
@@ -421,7 +426,6 @@ class Articulo(Model):
                     cls.porPais[autor.pais] =[articulo]
         for pais in cls.porPais:
             cls.porPais[pais] = list(sorted(set(cls.porPais[pais]),key= lambda x: x.nota))
-        print cls.porPais
 
 
 # class Inscripcion(Persona):
@@ -548,15 +552,20 @@ if __name__ == '__main__':
 
     print '='*50
     p = int(raw_input("Ingrese minimo de articulos a aceptar por pais: "))
-    # Articulo.agruparPorPais();
-    # CP.aceptarPorPais(p)
+    Articulo.agruparPorPais()
+    CP.aceptarPorPais(p)
 
-    Dibujamofo(dicc_plot_autor.keys(), dicc_plot_autor.values())
-    #Por topico
-    Dibujamofo(dicc_plot_topico.keys(), dicc_plot_topico.values())
+    n1 = int(raw_input("Ingrese el punto de corte: "))
+    n2 = int(raw_input("Ingrese el segundo punto de corte: "))
 
-    #Por institucion
-    Dibujamofo(dicc_plot_inst.keys(), dicc_plot_inst.values())
+    # CP.notaCorte()
 
-    #Por pais
-    Dibujamofo(dicc_plot_pais.keys(), dicc_plot_pais.values())
+    # Dibujamofo(dicc_plot_autor.keys(), dicc_plot_autor.values())
+    # #Por topico
+    # Dibujamofo(dicc_plot_topico.keys(), dicc_plot_topico.values())
+
+    # #Por institucion
+    # Dibujamofo(dicc_plot_inst.keys(), dicc_plot_inst.values())
+
+    # #Por pais
+    # Dibujamofo(dicc_plot_pais.keys(), dicc_plot_pais.values())
