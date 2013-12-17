@@ -1,0 +1,36 @@
+<html>
+<head>
+  <meta charset='utf-8'>
+  <link rel='stylesheet' href='{{STATIC_URL}}css/base.css'>
+  {% block style_css %}{% endblock %}
+</head>
+<title> Gestión de Artículos </title>
+
+<body><div id="banner-wrapper"><div id="banner" class="container"></div></div>
+
+<h1> Procedimientos para gestionar artículos </h1>
+
+<hr> </hr>
+<h3> <li> Envío de un artículo </li> </h3>
+<form action="/envioarticulo/" method="post">
+{% csrf_token %}
+    <p><div><label> Nombre </label><input type="text" name="nombre"> </div></p>
+    <p><div><label> Direccion </label><input type="text" name="direccion"> </div></p>
+    <p><div><label> Identificador (cedula/rif) </label><input type="number" name="identificador">  </div></p>
+    <p> <input type="submit" class="button" value="Enviar Artículo"></p>
+</form>
+
+</br>
+
+<h3> <li> <a href="/histogramasarticulos/"> Mostrar histogramas de artículos </a> </li> <h3>
+
+<h3> <li> <a href="/listararticulos/"> Listar todos los artículos con su estado final </a> </li> <h3>
+
+
+</body>
+<hr></hr>
+
+
+
+
+</html>

@@ -1,0 +1,31 @@
+<html>
+<head>
+  <meta charset='utf-8'>
+  <link rel='stylesheet' href='{{STATIC_URL}}css/base.css'>
+  {% block style_css %}{% endblock %}
+</head>
+<title> Gestión de Participantes </title>
+
+<body><div id="banner-wrapper"><div id="banner" class="container"></div></div>
+
+<h1> Procedimiento para inscribir participantes </h1>
+
+<hr> </hr>
+<h3> <li> Inscripción de un nuevo participante </li> </h3>
+<form action="/creacionparticipante/" method="post">
+{% csrf_token %}
+    <p><div><label> Nombre </label><input type="text" name="nombre"> </div></p>
+    <p><div><label> Direccion </label><input type="text" name="direccion"> </div></p>
+    <p><div><label> Identificador (cedula/rif) </label><input type="number" name="identificador">  </div></p>
+    <p> <input type="submit" class="button" value="Inscribir Participante"></p>
+</form>
+
+</br>
+
+</body>
+<hr></hr>
+
+
+
+
+</html>

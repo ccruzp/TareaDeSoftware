@@ -1,0 +1,34 @@
+<html>
+<head>
+  <meta charset='utf-8'>
+  <link rel='stylesheet' href='{{STATIC_URL}}css/base.css'>
+  {% block style_css %}{% endblock %}
+</head>
+<title> Gestión de Eventos </title>
+
+<body><div id="banner-wrapper"><div id="banner" class="container"></div></div>
+
+<h1> Procedimientos para gestionar eventos </h1>
+
+<hr> </hr>
+<h3> <li> Creación de un evento </li> </h3>
+<form action="/creacionevento/" method="post">
+{% csrf_token %}
+    <p><div><label> Nombre </label><input type="text" name="nombre"> </div></p>
+    <p><div><label> Direccion </label><input type="text" name="direccion"> </div></p>
+    <p><div><label> Identificador (cedula/rif) </label><input type="number" name="identificador">  </div></p>
+    <p> <input type="submit" class="button" value="Crear Evento"></p>
+</form>
+
+</br>
+
+<h3> <li> <a href="/listareventos/"> Ver listado de eventos de la conferencia </a> </li> <h3>
+
+
+</body>
+<hr></hr>
+
+
+
+
+</html>

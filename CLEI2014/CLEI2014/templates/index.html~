@@ -1,0 +1,27 @@
+<html>
+    <head>
+        <meta charset='utf-8'>
+        <link rel='stylesheet' href='{{STATIC_URL}}css/base.css'>
+        {% block style_css %}{% endblock %}
+    </head>
+    <title> Inicio </title>
+    <body>
+        <div id="banner-wrapper">
+            <div id="banner" class="container"></div>
+        </div>
+        <h1> Inicio CLEI2014 </h1>
+        <hr> </hr>
+        <h3> Administración de Procesos </h3>
+        <p> Bienvenido </p>
+        <h4> Gestiones administrativas </h4>
+        <ol>
+            <li> <a href="/gestiondearticulos/"> Gestión de artículos </a> </li>
+            <li> <a href="/gestiondeparticipantes/"> Gestión de participantes </a> </li>
+            <li> <a href="/gestiondeeventos/"> Gestión de eventos </a> </li>
+            <li> <a href="/gestiondelugares/"> Gestión de lugares </a> </li>
+
+        </ol>
+        <a href="/"> Volver </a>
+    </body>
+    <hr></hr>
+</html>

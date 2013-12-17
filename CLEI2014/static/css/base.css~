@@ -1,0 +1,160 @@
+	html, body
+	{
+		height: 100%;
+	}
+	
+	body
+	{
+		margin: 5px;
+		padding: 0px;
+		font-family: 'Source Sans Pro', sans-serif;
+		font-size: 12pt;
+		font-weight: 300;
+		color: #000000;
+        background: url(../img/cortina_gray.jpg) no-repeat center top;
+
+	}
+	
+	
+	h1, h2, h3, h4
+	{
+		
+		margin: 5px;
+        color: #0173B2;
+        text-shadow: #0173B2 0px 0px 20px; 
+        text-shadow: #0173B2 0px 0px 10px 10px; 
+
+		font-size: 23px;
+	}
+	
+	div 
+	{
+		margin: .3em 0;
+	}
+	
+	div label 
+	{
+		width: 15%;
+		float: left;
+	}
+	
+	p, ol, ul
+	{
+		margin-top: 0;
+	}
+	
+	ol, ul
+	{
+		padding: 0;
+		list-style: none;
+	}
+	
+	p
+	{
+		line-height: 180%;
+	}
+	
+	strong
+	{
+	}
+	
+	a
+	{
+	
+		margin: 40px;
+		font-size: 20px;
+		font-weight: 600;
+		color: #000000;
+	}
+	
+	a:hover
+	{
+		text-decoration: none;
+	}
+	
+	input {
+	padding: .2em;
+
+
+	
+	}
+	.container
+	{
+		overflow: hidden;
+		margin: 0em auto;
+		width: 1200px;
+	}
+	
+
+
+
+
+/*********************************************************************************/
+/* Button Style                                                                  */
+/*********************************************************************************/
+
+	.button
+	{
+		display: inline-block;
+		padding: .5em 1em .5em 1em;
+		background: #0173B2;
+		letter-spacing: 0.05em;
+		text-decoration: none;
+		text-transform: uppercase;
+		font-weight: 100;
+		font-size: 0.60em;
+		color: #fff;
+	}
+	
+	.button:before
+	{
+	}
+		
+
+
+
+/*********************************************************************************/
+/* Banner                                                                        */
+/*********************************************************************************/
+
+	#banner-wrapper
+	{
+		overflow: hidden;
+		padding: 10em 0em 5em 0em;
+		background: url(../img/bannerclei.jpg) no-repeat center top;
+		background-size: 100% auto;
+	}
+	
+	#banner .title
+	{
+		margin-bottom: 3em;
+		text-align: center;
+	}
+	
+	#banner h3
+	{
+		margin-bottom: 1em;
+		font-size: 1.4em;
+		font-weight: 600;
+		color: rgba(0,0,0,.8);
+	}
+
+	#banner .button
+	{
+		margin-top: 1em;
+	}
+	
+	.combo {
+
+   -webkit-border-radius: 5px;
+   -moz-border-radius: 5px;
+   border-radius: 5px;
+   border: 1px solid #ccc;
+   background-color: #0173B2;
+   color: #fff;
+   height: 25px;
+   width: 180px;
+   font-size: 17px;
+
+}
+
