@@ -2,7 +2,7 @@ import random
 from datetime import datetime
 from collections import OrderedDict
 from input import readRawValues, notEmpty, valueLength, commaSeparate, toDate, boolFormat, \
-    greaterThanZero, afterToday, valueBetween
+    greaterThanZero, afterToday, valueBetween, betweenOneAndFour
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -169,6 +169,49 @@ class Autor(Persona):
     def __str__(self):
         return "[%d] %s %s" % (self.pk, self.nombre, self.apellido)
 
+class Inscripcion(Persona):
+    '''Participante del CLEI'''
+    charlas = {}
+    talleres = {}
+    charlasTalleres = {}
+    descuento = {}
+
+    def __init__(self, *args, **kwargs):
+        self.dirPostal = kwargs.pop('dirPostal')
+        self.pagWeb = kwargs.pop('pagWeb')
+        self.telf = kwargs.pop('telf')
+        self.tipo = kwargs.pop('tipo')
+        super(Inscripcion, self).__init__(*args, **kwargs)
+
+    def save(self):
+        super(Inscripcion, self).save()
+        if (self.tipo == 1):
+            Inscripcion.charlas[self.pk] = self
+        elif (self.tipo == 2):
+            Inscripcion.talleres[self.pk] = self
+        elif (self.tipo == 3):
+            Inscripcion.charlasTalleres[self.pk] = self
+        else:
+            Inscripcion.descuento[self.pk] = self
+
+
+    @staticmethod
+    def readRaw():
+        return readRawValues(
+            ('dirPostal', ('Direccion postal: ', str, [notEmpty])),
+            ('telf', ('Telefono: ', str, [notEmpty])),
+            ('pagWeb', ('Pagina Web: ', str, [])),
+            ('tipo', ('Ingrese el tipo de inscripcion:\n1 - Solo charlas\n2 - Solo talleres\n3 - Charlas y talleres\n4 - Descuentos\n', int, [betweenOneAndFour])),
+        )
+
+    @classmethod
+    def read(cls):
+        values = Persona.readRaw()
+        values.update(Inscripcion.readRaw())
+        return cls(**values)
+
+    def __str__(self):
+        return "[%d] %s %s %s %s %s" %(self.pk, self.nombre, self.apellido, self.dirPostal, self.telf, self.pagWeb)
 
 class CP(Model):
     '''Comite de Programa del CLEI'''
@@ -425,7 +468,7 @@ class Articulo(Model):
 
 
 # class Inscripcion(Persona):
-#     def __init__(self,direccion,pag_web,telefono):
+#     def __init__(self, direccion, pag_web, telefono):
 #         self.direccion = direccion
 #         self.pagina_web = pag_web
 #         self.telefono = telefono
@@ -458,105 +501,127 @@ class Articulo(Model):
 ##################
 
 if __name__ == '__main__':
-    print '='*50
-    print "Bienvenido al CLEI"
-    print "Iniciando proceso de creacion de un nuevo CLEI"
-    print '='*50
-    clei = Clei.read()
-    clei.save()
-    print '='*50
-    n = int(raw_input("Cuantos autores hay? "))
-    print '='*50
+    # print '='*50
+    # print "Bienvenido al CLEI"
+    # print "Iniciando proceso de creacion de un nuevo CLEI"
+    # print '='*50
+    # clei = Clei.read()
+    # clei.save()
+    # print '='*50
+    n = int(raw_input("Cuantas inscripciones hay?\n"))
     for i in range(n):
-        print "Autor #%d" % (i+1)
-        autor = Autor.read()
-        autor.save()
-    print '='*50
-    print 'Lista de autores registrados'
-    print '='*50
-    for x in sorted(Autor.objects.values(), key=lambda x: x.pk):
+        print "Inscripcion #%d" %(i+1)
+        inscripcion = Inscripcion.read()
+        inscripcion.save()
+
+    print "Lista de personas inscritas para solo charlas"
+    for x in sorted(Inscripcion.charlas.values(), key=lambda x: x.pk):
         print x
-    print '='*50
-    print 'Articulos'
-    print '='*50
-    n = int(raw_input("Cuantos articulos hay? "))
-    for i in range(n):
-        art = Articulo.read(clei)
-        art.save()
-    print '='*50
-    print 'Lista de articulos registrados con sus autores'
-    for art in Articulo.objects.values():
-        print art
-    print '='*50
-    print "Haciendo una asignacion aleatoria de articulos..."
-    clei.asignarArticulos()
-    print '='*50
-    print 'Proceso de evaluacion'
-    print '='*50
-    print 'A continuacion para cada miembro del CP se presentaran los articulos que debe evaluar y se preguntara para cada uno la nota'
-    for miembrocp in clei.cp.miembros:
-        print '-'*50
-        print 'Articulos asignados a %s %s' % (miembrocp.nombre, miembrocp.apellido)
-        print '-'*50
-        for art in miembrocp.correcciones.keys():
-            print art
-            values = readRawValues(
-                ('nota', ('Nota asignada [1-5]: ', int, [valueBetween(1, 5)]))
-            )
-            miembrocp.evaluarArticulo(art, values['nota'])
-    n_articulos = int(raw_input("Numero de articulos a aceptar?"))
-    aceptados, empatados = clei.particionarArticulos(n_articulos)
-    print '='*50
-    print 'Articulos aceptados'
-    print '='*50
-    for art in aceptados:
-        print '%s\nNota: %f' % (art, art.nota)
-    print '='*50
-    print 'Articulos empatados'
-    print '='*50
-    for art in empatados:
-        print '%s\nNota: %f' % (art, art.nota)
 
-    #Histogramas
-    #Por autor
-    dicc_plot_autor = {}
-    dicc_plot_topico= {}
-    dicc_plot_inst = {}
-    dicc_plot_pais= {}
+    print "Lista de personas inscritas solo para talleres"
+    for x in sorted(Inscripcion.talleres.values(), key=lambda x: x.pk):
+        print x
 
-    for art in aceptados:
+    print "Lista de persoans inscritas para charlas y talleres"
+    for x in sorted(Inscripcion.charlasTalleres.values(), key=lambda x: x.pk):
+        print x
 
-        for topico in art.topicos:
-            if topico.nombre not in dicc_plot_topico:
-                dicc_plot_topico[topico.nombre] = 0
-            dicc_plot_topico[topico.nombre] +=1
+    print "Lista de personas inscritas con descuento"
+    for x in sorted(Inscripcion.descuento.values(), key=lambda x: x.pk):
+        print x
 
-        for autor in art.autores:
-            nombre_completo = '%s %s' % (autor.nombre, autor.apellido)
-            if nombre_completo not in dicc_plot_autor:
-                dicc_plot_autor[nombre_completo] = 0
-            dicc_plot_autor[nombre_completo] += 1
+    # n = int(raw_input("Cuantos autores hay? "))
+    # print '='*50
+    # for i in range(n):
+    #     print "Autor #%d" % (i+1)
+    #     autor = Autor.read()
+    #     autor.save()
+    # print '='*50
+    # print 'Lista de autores registrados'
+    # print '='*50
+    # for x in sorted(Autor.objects.values(), key=lambda x: x.pk):
+    #     print x
+    # print '='*50
+    # print 'Articulos'
+    # print '='*50
+    # n = int(raw_input("Cuantos articulos hay? "))
+    # for i in range(n):
+    #     art = Articulo.read(clei)
+    #     art.save()
+    # print '='*50
+    # print 'Lista de articulos registrados con sus autores'
+    # for art in Articulo.objects.values():
+    #     print art
+    # print '='*50
+    # print "Haciendo una asignacion aleatoria de articulos..."
+    # clei.asignarArticulos()
+    # print '='*50
+    # print 'Proceso de evaluacion'
+    # print '='*50
+    # print 'A continuacion para cada miembro del CP se presentaran los articulos que debe evaluar y se preguntara para cada uno la nota'
+    # for miembrocp in clei.cp.miembros:
+    #     print '-'*50
+    #     print 'Articulos asignados a %s %s' % (miembrocp.nombre, miembrocp.apellido)
+    #     print '-'*50
+    #     for art in miembrocp.correcciones.keys():
+    #         print art
+    #         values = readRawValues(
+    #             ('nota', ('Nota asignada [1-5]: ', int, [valueBetween(1, 5)]))
+    #         )
+    #         miembrocp.evaluarArticulo(art, values['nota'])
+    # n_articulos = int(raw_input("Numero de articulos a aceptar?"))
+    # aceptados, empatados = clei.particionarArticulos(n_articulos)
+    # print '='*50
+    # print 'Articulos aceptados'
+    # print '='*50
+    # for art in aceptados:
+    #     print '%s\nNota: %f' % (art, art.nota)
+    # print '='*50
+    # print 'Articulos empatados'
+    # print '='*50
+    # for art in empatados:
+    #     print '%s\nNota: %f' % (art, art.nota)
+
+    # #Histogramas
+    # #Por autor
+    # dicc_plot_autor = {}
+    # dicc_plot_topico= {}
+    # dicc_plot_inst = {}
+    # dicc_plot_pais= {}
+
+    # for art in aceptados:
+
+    #     for topico in art.topicos:
+    #         if topico.nombre not in dicc_plot_topico:
+    #             dicc_plot_topico[topico.nombre] = 0
+    #         dicc_plot_topico[topico.nombre] +=1
+
+    #     for autor in art.autores:
+    #         nombre_completo = '%s %s' % (autor.nombre, autor.apellido)
+    #         if nombre_completo not in dicc_plot_autor:
+    #             dicc_plot_autor[nombre_completo] = 0
+    #         dicc_plot_autor[nombre_completo] += 1
 
 
-            if autor.institucion not in dicc_plot_inst:
-                dicc_plot_inst[autor.institucion] = 0
-            dicc_plot_inst[autor.institucion] +=1
+    #         if autor.institucion not in dicc_plot_inst:
+    #             dicc_plot_inst[autor.institucion] = 0
+    #         dicc_plot_inst[autor.institucion] +=1
 
-            if autor.pais not in dicc_plot_pais:
-                dicc_plot_pais[autor.pais] = 0
-            dicc_plot_pais[autor.pais] +=1
+    #         if autor.pais not in dicc_plot_pais:
+    #             dicc_plot_pais[autor.pais] = 0
+    #         dicc_plot_pais[autor.pais] +=1
 
-    print '='*50
-    p = int(raw_input("Ingrese minimo de articulos a aceptar por pais: "))
-    # Articulo.agruparPorPais();
-    # CP.aceptarPorPais(p)
+    # print '='*50
+    # p = int(raw_input("Ingrese minimo de articulos a aceptar por pais: "))
+    # # Articulo.agruparPorPais();
+    # # CP.aceptarPorPais(p)
 
-    Dibujamofo(dicc_plot_autor.keys(), dicc_plot_autor.values())
-    #Por topico
-    Dibujamofo(dicc_plot_topico.keys(), dicc_plot_topico.values())
+    # Dibujamofo(dicc_plot_autor.keys(), dicc_plot_autor.values())
+    # #Por topico
+    # Dibujamofo(dicc_plot_topico.keys(), dicc_plot_topico.values())
 
-    #Por institucion
-    Dibujamofo(dicc_plot_inst.keys(), dicc_plot_inst.values())
+    # #Por institucion
+    # Dibujamofo(dicc_plot_inst.keys(), dicc_plot_inst.values())
 
-    #Por pais
-    Dibujamofo(dicc_plot_pais.keys(), dicc_plot_pais.values())
+    # #Por pais
+    # Dibujamofo(dicc_plot_pais.keys(), dicc_plot_pais.values())
