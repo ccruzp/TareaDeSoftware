@@ -181,6 +181,7 @@ class Inscripcion(Persona):
         self.pagWeb = kwargs.pop('pagWeb')
         self.telf = kwargs.pop('telf')
         self.tipo = kwargs.pop('tipo')
+        self.fecha = datetime.today()
         super(Inscripcion, self).__init__(*args, **kwargs)
 
     def save(self):
@@ -211,7 +212,7 @@ class Inscripcion(Persona):
         return cls(**values)
 
     def __str__(self):
-        return "[%d] %s %s %s %s %s" %(self.pk, self.nombre, self.apellido, self.dirPostal, self.telf, self.pagWeb)
+        return "[%d] %s %s %s %s %s %s" %(self.pk, self.nombre, self.apellido, self.dirPostal, self.telf, self.pagWeb, self.fecha.strftime("%d/%m/%y"))
 
 class CP(Model):
     '''Comite de Programa del CLEI'''
