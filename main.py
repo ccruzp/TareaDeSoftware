@@ -212,7 +212,7 @@ class Inscripcion(Persona):
         return cls(**values)
 
     def __str__(self):
-        return "[%d] %s %s %s %s %s %s" %(self.pk, self.nombre, self.apellido, self.dirPostal, self.telf, self.pagWeb, self.fecha.strftime("%d/%m/%y"))
+        return "[%d] %s %s %s %s %s %s" %(self.pk, self.nombre, self.apellido, self.dirPostal, self.telf, self.pagWeb, self.fecha.strftime("%d/%m/%Y"))
 
 class CP(Model):
     '''Comite de Programa del CLEI'''
@@ -285,8 +285,10 @@ class CP(Model):
 class Clei(Model):
     '''CLEI'''
     objects = {}
-    def __init__(self, fechaInscripcion, fechaTopeArticulo, fechaNotificacion,
-                 dias, tarifaReducida, tarifaNormal):
+    def __init__(self, fechaInscripcionDescuento, fechaInscripcion, 
+                 fechaTopeArticulo, fechaNotificacion, dias, tarifaReducida, 
+                 tarifaNormal):
+        self.fechaInscripcionDescuento = fechaInscripcionDescuento
         self.fechaInscripcion = fechaInscripcion
         self.fechaTopeArticulo = fechaTopeArticulo
         self.fechaNotificacion = fechaNotificacion
@@ -355,7 +357,8 @@ class Clei(Model):
     def readRaw():
 
         return readRawValues(
-            ('fechaInscripcion',('Fecha de Inscripcion [dd/mm/yyyy]: ', toDatetime, [afterToday]),),
+            ('fechaInscripcion',('Fecha tope de Inscripcion [dd/mm/yyyy]: ', toDatetime, [afterToday]),),
+            ('fechaInscripcionDescuento',('Fecha tope de Inscripcion con descuento [dd/mm/yyyy]: ', toDatetime, [afterToday]),),
             ('fechaTopeArticulo',('Fecha de Tope Articulos [dd/mm/yyyy]: ', toDatetime, [afterToday]),),
             ('fechaNotificacion',('Fecha de Notificacion [dd/mm/yyyy]: ', toDatetime, [afterToday]),),
             ('dias',('Dias conferencia: ', int, [greaterThanZero]),),
@@ -502,34 +505,34 @@ class Articulo(Model):
 ##################
 
 if __name__ == '__main__':
-    # print '='*50
-    # print "Bienvenido al CLEI"
-    # print "Iniciando proceso de creacion de un nuevo CLEI"
-    # print '='*50
-    # clei = Clei.read()
-    # clei.save()
-    # print '='*50
+    print '='*50
+    print "Bienvenido al CLEI"
+    print "Iniciando proceso de creacion de un nuevo CLEI"
+    print '='*50
+    clei = Clei.read()
+    clei.save()
+    print '='*50
     n = int(raw_input("Cuantas inscripciones hay?\n"))
     for i in range(n):
         print "Inscripcion #%d" %(i+1)
         inscripcion = Inscripcion.read()
         inscripcion.save()
 
-    print "Lista de personas inscritas para solo charlas"
-    for x in sorted(Inscripcion.charlas.values(), key=lambda x: x.pk):
-        print x
+    # print "Lista de personas inscritas para solo charlas"
+    # for x in sorted(Inscripcion.charlas.values(), key=lambda x: x.pk):
+    #     print x
 
-    print "Lista de personas inscritas solo para talleres"
-    for x in sorted(Inscripcion.talleres.values(), key=lambda x: x.pk):
-        print x
+    # print "Lista de personas inscritas solo para talleres"
+    # for x in sorted(Inscripcion.talleres.values(), key=lambda x: x.pk):
+    #     print x
 
-    print "Lista de persoans inscritas para charlas y talleres"
-    for x in sorted(Inscripcion.charlasTalleres.values(), key=lambda x: x.pk):
-        print x
+    # print "Lista de persoans inscritas para charlas y talleres"
+    # for x in sorted(Inscripcion.charlasTalleres.values(), key=lambda x: x.pk):
+    #     print x
 
-    print "Lista de personas inscritas con descuento"
-    for x in sorted(Inscripcion.descuento.values(), key=lambda x: x.pk):
-        print x
+    # print "Lista de personas inscritas con descuento"
+    # for x in sorted(Inscripcion.descuento.values(), key=lambda x: x.pk):
+    #     print x
 
     # n = int(raw_input("Cuantos autores hay? "))
     # print '='*50
