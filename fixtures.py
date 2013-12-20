@@ -254,6 +254,7 @@ class AutorFixture(Fixture):
 class CleiFixture(Fixture):
     fixtures = [
         {
+            'fechaInscripcionDescuento': '5/10/2014',
             'fechaInscripcion': '7/10/2014',
             'fechaTopeArticulo': '14/04/2014',
             'fechaNotificacion': '01/06/2014',
@@ -290,3 +291,47 @@ class CPFixture(Fixture):
     def down(self):
         super(CPFixture, self).down()
         self.cleiFixture.down()
+
+class IncripcionFixture(Fixture):
+    fixtures = [
+        {   
+            'nombre': 'Andreina',
+            'apellido': 'Soza',
+            'institucion': 'USB',
+            'correo': 'asoza@usb.ve',
+            'dirPostal': '1080',
+            'pagWeb': 'www.pagina1.com',
+            'telf': '04120000000',
+            'tipo': 1,
+        },
+        {
+            'nombre': 'Alejandro',
+            'apellido': 'Perez',
+            'institucion': 'USB',
+            'correo': 'aperez@usb.ve',
+            'dirPostal': '1081',
+            'pagWeb': 'www.pagina2.com',
+            'telf': '04120000001',
+            'tipo': 2,
+        },
+        {
+            'nombre': 'Alejandra',
+            'apellido': 'Riera',
+            'institucion': 'USB',
+            'correo': 'ariera@usb.ve',
+            'dirPostal': '1082',
+            'pagWeb': 'www.pagina3.com',
+            'telf': '04120000003',
+            'tipo': 3,
+        },
+        {
+            'nombre': 'Pedro',
+            'apellido': 'Marmol',
+            'institucion': 'USB',
+            'correo': 'pmarmol@usb.ve',
+            'dirPostal': '1083',
+            'pagWeb': 'www.pagina4.com',
+            'telf': '04120000004',
+            'tipo': 4,
+        },
+    ]

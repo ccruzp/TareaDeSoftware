@@ -199,6 +199,11 @@ class TestArticulo(GeneralClassTest):
             self.assertTrue(topico in x.topicos)
             self.assertTrue(x in topico.articulos)
 
+class TestInscripcion(GeneralClassTest):
+    classTest = Persona
+    fixtures = IncripcionFixture(Inscripcion)
+
+
 def load_tests(loader, standard_tests, pattern):
     suite = unittest.TestSuite()
     suite.addTests(loader.loadTestsFromTestCase(TestPersona))
@@ -209,6 +214,7 @@ def load_tests(loader, standard_tests, pattern):
     suite.addTests(loader.loadTestsFromTestCase(TestClei))
     suite.addTests(loader.loadTestsFromTestCase(TestArticulo))
     suite.addTests(loader.loadTestsFromTestCase(TestAsignacionEvaluacion))
+    suite.addTests(loader.loadTestsFromTestCase(TestInscripcion))
     return suite
 
 if __name__ == '__main__':
