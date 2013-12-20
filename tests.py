@@ -199,6 +199,21 @@ class TestArticulo(GeneralClassTest):
             self.assertTrue(topico in x.topicos)
             self.assertTrue(x in topico.articulos)
 
+    def testAgruparPorPais(self):
+        paises = {}
+        for x in self.instances:
+            for y in x.autores:
+                if y.pais not in paises:
+                    paises.append(y.pais)
+        self.assertTrue(len(Articulo.count_paises) == len(paises))
+
+    def testAgruparPorTopico(self):
+        topicos = {}
+        for x in self.instances:
+            for y in x.topicos:
+                topicos.append(y)
+        self.assertTrue(len(Articulo.porTopico) == len(topicos))
+
 def load_tests(loader, standard_tests, pattern):
     suite = unittest.TestSuite()
     suite.addTests(loader.loadTestsFromTestCase(TestPersona))
