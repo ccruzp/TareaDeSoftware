@@ -1,6 +1,6 @@
 import random
 from datetime import datetime
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from input import readRawValues, notEmpty, valueLength, commaSeparate, toDate, boolFormat, \
     greaterThanZero, afterToday, valueBetween
 import numpy as np
@@ -10,6 +10,26 @@ toTopico = lambda x: set(Topico.getOrCreate(y) for y in commaSeparate(x))
 toDatetime = lambda x: datetime.strptime(x, '%d/%m/%Y')
 toAutor = lambda x: set(Autor.find(int(y)) for y in commaSeparate(x))
 toHour = lambda x: datetime.strptime(x, '%H:%M')
+
+def representacionPorPais(articulo, count):
+    # saca un promedio de la representacion de los paises de los
+    # autores del articulo
+    s = 0
+    n = 0
+    for autor in articulo.autores:
+        s += count[autor.pais]
+        n += 1
+    return s/float(n)
+
+def obtenerCuentaPorPais(articulos):
+    countPaises = defaultdict(int)
+    for art in articulos:
+        seen = set()
+        for autor in art.autores:
+            if autor.pais not in seen:
+                countPaises[autor.pais] += 1
+                seen.add(autor.pais)
+    return countPaises
 
 #Funcion para dibujar los histogramas
 def Dibujamofo(eje_x,eje_y):
@@ -138,7 +158,7 @@ class MiembroCP(Persona):
 
 class Autor(Persona):
     objects = {}
-    paises = {}
+
     def __init__(self, *args, **kwargs):
         self.pais = kwargs.pop('pais')
         self.articulos = set()
@@ -151,9 +171,6 @@ class Autor(Persona):
     def save(self):
         super(Autor, self).save()
         Autor.objects[self.pk] = self
-        if self.pais not in Autor.paises:
-            Autor.paises[self.pais]=0
-        Autor.paises[self.pais] +=1
 
     @staticmethod
     def readRaw():
@@ -224,17 +241,128 @@ class CP(Model):
         return cp
 
     @classmethod
-    def aceptarPorPais(cls,p):
-        aceptados=[]
-        not_accepted = []
-        for x in cls.porPais:
-            # m es el minimo entre el limite y numero maximo de articulos por paises
-            m = min(p, len(cls.porPais[x]))
-            # Lista de aceptados por pais, y la lista ordenada por nota de las no aceptadas
-            aceptados += cls.porPais[x][:m]
-            no_aceptados = cls.porPais[x][m:]
+    def aceptarPorPais(cls,p,n_articulos):
+        # primero aceptamos los p-mejores articulos por pais
+        aceptados= set()
+        for pais in Articulo.porPais:
+            cuantos = min(p, len(Articulo.porPais[pais]))
+            aceptados |= set(x for x in Articulo.porPais[pais][:cuantos])
 
-            return list(set(aceptados)), list(sorted(set(no_aceptados), key=lambda x:x.nota))
+        # Ahora del resto tratamos de aceptar los mejores articulos
+        # dependiendo de los paises menos representados... whatever
+        # that is.
+        paisCount = obtenerCuentaPorPais(aceptados)
+        r_count = n_articulos - len(aceptados)
+        no_aceptados = [x for x in Articulo.objects.values()
+                        if x not in aceptados]
+        resto = set()
+        while len(resto) < r_count:
+            poss = [(x.nota, -representacionPorPais(x, paisCount), x)
+                    for x in no_aceptados]
+            try:
+                agg = max(poss)
+            except ValueError:
+                break
+            else:
+                if agg not in resto:
+                    resto.add(agg[-1])
+                    no_aceptados.remove(agg[-1])
+                    paisCount = obtenerCuentaPorPais(aceptados|resto)
+        return list(aceptados), list(resto)
+
+    @classmethod
+    def cortePorNota(cls,n1,n2):
+        # aceptamos todos los articulos con nota mayor o igual a n1
+        aceptados = [x
+                     for x in Articulo.objects.values()
+                     if x.nota >= n1]
+        # determinaremos el segundo batch de articulos a aceptar
+        count = obtenerCuentaPorPais(aceptados)
+        no_aceptados = [(x.nota, -representacionPorPais(x, count), x)
+                        for x in Articulo.objects.values()
+                        if x not in aceptados]
+        resto = []
+        while True:
+            try:
+                prox = max(no_aceptados)
+            except ValueError:
+                break
+            else:
+                if prox[-1].nota > n2:
+                    resto.append(prox[-1])
+                    count = obtenerCuentaPorPais(aceptados+resto)
+                    no_aceptados = [(x.nota, -representacionPorPais(x, count), x)
+                                    for (_, _, x) in no_aceptados
+                                    if x != prox[-1]]
+                else: break
+
+
+        return aceptados, resto
+
+    @classmethod
+    def proporcionalPorPaises(cls, n):
+        # n es cuantos articulos en total se van a aceptar
+        propPaises = int(round(0.8*n))
+        total = sum(len(x) for x in Articulo.porPais.values())
+        aceptados = set()
+        # print 'Aceptare %d articulos' % propPaises
+        # print 'Hay en total participando %d articulos' % total
+        for x in Articulo.porPais.values():
+            num = len(x)/float(total)
+            # print 'Proporcion: %f' % num
+            # queremos aceptar 80% *(num/count) articulo de este pais
+            aceptables = min(len(x), int(round(propPaises * num)))
+            # print 'Aceptare de este pais %d articulos' % aceptables
+            aceptados |= set([y for y in x[:aceptables]])
+
+        r_count = n_articulos - len(aceptados)
+        no_aceptados = [x for x in Articulo.objects.values()
+                        if x not in aceptados]
+        resto = set()
+        while len(resto) < r_count:
+            poss = [(x.nota, x)
+                    for x in no_aceptados]
+            try:
+                agg = max(poss)
+            except ValueError:
+                break
+            else:
+                if agg not in resto:
+                    resto.add(agg[-1])
+                    no_aceptados.remove(agg[-1])
+        return list(aceptados), list(resto)
+
+
+    @classmethod
+    def proporcionalPorTopico(cls, n):
+        # n es cuantos articulos en total se van a aceptar
+        total = sum(len(x) for x in Articulo.porPais.values())
+        aceptados = set()
+        # print 'Aceptare %d articulos' % propPaises
+        # print 'Hay en total participando %d articulos' % total
+        for (k,x) in Articulo.porTopico.items():
+            # print k
+            num = len(x)/float(total)
+            # print 'Proporcion: %f' % num
+            # queremos aceptar 80% *(num/count) articulo de este pais
+            aceptables = min(len(x), int(round(n * num)))
+            # print 'Aceptare de este topico %d articulos' % aceptables
+            aceptados |= set([y for y in x[:aceptables]])
+        no_aceptados = [x for x in Articulo.objects.values()
+                        if x not in aceptados]
+        while len(aceptados) < n:
+            poss = [(x.nota, x)
+                    for x in no_aceptados]
+            try:
+                agg = max(poss)
+            except ValueError:
+                break
+            else:
+                if agg not in aceptados:
+                    aceptados.add(agg[-1])
+                    no_aceptados.remove(agg[-1])
+
+        return list(aceptados)
 
 
 
@@ -337,6 +465,10 @@ class Articulo(Model):
     objects = {}
     #Diccionario con key pais, value lista de articulos
     porPais ={}
+    # Dicccionario con key topico, value lista de articulos
+    porTopico = {}
+    #Diccionario key pais,value numero de articulos asociados a pais
+    count_paises= {}
     ACEPTADO, RECHAZADO, REVISANDO, ESPERANDO = range(4)
     def __init__(self, titulo, clei, pclaves):
         self.titulo = titulo
@@ -379,12 +511,26 @@ class Articulo(Model):
         return other.titulo == self.titulo
 
     def __str__(self):
-        tr = 'Titulo: %s\nAutores: %s'
+        tr = 'Titulo: %s\nAutores: %s\nTopicos: %s'
         return tr % (self.titulo,
-                     ', '.join('%s %s' % (x.nombre, x.apellido) for x in self.autores))
+                     ', '.join('%s %s (%s) [Nota=%f]' % (x.nombre, x.apellido, x.pais, self.nota) for x in self.autores),
+                     ', '.join('%s' % x.nombre for x in self.topicos)
+        )
 
     def __repr__(self):
         return "Articulo[%s]" % (self.titulo)
+
+    @classmethod
+    def agruparPorTopico(cls):
+        cls.porTopico ={}
+        for articulo in cls.objects.values():
+            for topico in articulo.topicos:
+                if topico.nombre in cls.porTopico:
+                    cls.porTopico[topico.nombre].append(articulo)
+                else:
+                    cls.porTopico[topico.nombre] =[articulo]
+        for topico in cls.porTopico:
+            cls.porTopico[topico] = list(reversed(sorted(set(cls.porTopico[topico]),key= lambda x: x.nota)))
 
 
     @staticmethod
@@ -411,7 +557,6 @@ class Articulo(Model):
 
     @classmethod
     def agruparPorPais(cls):
-        print 'sdasdsd'
         cls.porPais ={}
         for articulo in cls.objects.values():
             for autor in articulo.autores:
@@ -420,15 +565,7 @@ class Articulo(Model):
                 else:
                     cls.porPais[autor.pais] =[articulo]
         for pais in cls.porPais:
-            cls.porPais[pais] = list(sorted(set(cls.porPais[pais]),key= lambda x: x.nota))
-        print cls.porPais
-
-
-# class Inscripcion(Persona):
-#     def __init__(self,direccion,pag_web,telefono):
-#         self.direccion = direccion
-#         self.pagina_web = pag_web
-#         self.telefono = telefono
+            cls.porPais[pais] = list(reversed(sorted(set(cls.porPais[pais]),key= lambda x: x.nota)))
 
 
 class Evento(object):
@@ -544,8 +681,6 @@ class Lugar(Model):
             return l
 
 
-
-
 ##################
 #    Interface   #
 ##################
@@ -592,64 +727,105 @@ if __name__ == '__main__':
         print 'Articulos asignados a %s %s' % (miembrocp.nombre, miembrocp.apellido)
         print '-'*50
         for art in miembrocp.correcciones.keys():
-            print art
-            values = readRawValues(
-                ('nota', ('Nota asignada [1-5]: ', int, [valueBetween(1, 5)]))
-            )
-            miembrocp.evaluarArticulo(art, values['nota'])
+            nota = random.randint(1, 5)
+            print art, nota
+
+            # values = readRawValues(
+            #     ('nota', ('Nota asignada [1-5]: ', int, [valueBetween(1, 5)]))
+            # )
+            # miembrocp.evaluarArticulo(art, values['nota'])
+            miembrocp.evaluarArticulo(art, nota)
+
+    # TODO: No preguntar si es por cortes.
     n_articulos = int(raw_input("Numero de articulos a aceptar?"))
-    aceptados, empatados = clei.particionarArticulos(n_articulos)
-    print '='*50
-    print 'Articulos aceptados'
-    print '='*50
-    for art in aceptados:
-        print '%s\nNota: %f' % (art, art.nota)
-    print '='*50
-    print 'Articulos empatados'
-    print '='*50
-    for art in empatados:
-        print '%s\nNota: %f' % (art, art.nota)
+    # aceptados, empatados = clei.particionarArticulos(n_articulos)
+    # print '='*50
+    # print 'Articulos aceptados'
+    # print '='*50
+    # for art in aceptados:
+    #     print '%s\nNota: %f' % (art, art.nota)
+    # print '='*50
+    # print 'Articulos empatados'
+    # print '='*50
+    # for art in empatados:
+    #     print '%s\nNota: %f' % (art, art.nota)
 
-    #Histogramas
-    #Por autor
-    dicc_plot_autor = {}
-    dicc_plot_topico= {}
-    dicc_plot_inst = {}
-    dicc_plot_pais= {}
+    # #Histogramas
+    # #Por autor
+    # dicc_plot_autor = {}
+    # dicc_plot_topico= {}
+    # dicc_plot_inst = {}
+    # dicc_plot_pais= {}
 
-    for art in aceptados:
+    # for art in aceptados:
 
-        for topico in art.topicos:
-            if topico.nombre not in dicc_plot_topico:
-                dicc_plot_topico[topico.nombre] = 0
-            dicc_plot_topico[topico.nombre] +=1
+    #     for topico in art.topicos:
+    #         if topico.nombre not in dicc_plot_topico:
+    #             dicc_plot_topico[topico.nombre] = 0
+    #         dicc_plot_topico[topico.nombre] +=1
 
-        for autor in art.autores:
-            nombre_completo = '%s %s' % (autor.nombre, autor.apellido)
-            if nombre_completo not in dicc_plot_autor:
-                dicc_plot_autor[nombre_completo] = 0
-            dicc_plot_autor[nombre_completo] += 1
+    #     for autor in art.autores:
+    #         nombre_completo = '%s %s' % (autor.nombre, autor.apellido)
+    #         if nombre_completo not in dicc_plot_autor:
+    #             dicc_plot_autor[nombre_completo] = 0
+    #         dicc_plot_autor[nombre_completo] += 1
 
 
-            if autor.institucion not in dicc_plot_inst:
-                dicc_plot_inst[autor.institucion] = 0
-            dicc_plot_inst[autor.institucion] +=1
+    #         if autor.institucion not in dicc_plot_inst:
+    #             dicc_plot_inst[autor.institucion] = 0
+    #         dicc_plot_inst[autor.institucion] +=1
 
-            if autor.pais not in dicc_plot_pais:
-                dicc_plot_pais[autor.pais] = 0
-            dicc_plot_pais[autor.pais] +=1
+    #         if autor.pais not in dicc_plot_pais:
+    #             dicc_plot_pais[autor.pais] = 0
+    #         dicc_plot_pais[autor.pais] +=1
 
-    print '='*50
-    p = int(raw_input("Ingrese minimo de articulos a aceptar por pais: "))
-    # Articulo.agruparPorPais();
-    # CP.aceptarPorPais(p)
+    # print '='*50
+    Articulo.agruparPorPais()
+    Articulo.agruparPorTopico()
+    # paises_diferentes = len(Articulo.porPais)
+    # print 'Hay %d paises diferentes: ' % paises_diferentes
+    # print '\n'.join(Articulo.porPais.keys())
+    # while True:
+    #     p = int(raw_input("Ingrese minimo de articulos a aceptar por pais: "))
+    #     if paises_diferentes*p > n_articulos:
+    #         print 'Previamente dijiste que querias aceptar %d articulos. Obligar al menos %d por pais *potencialmente* excede ese numero, vuelve a intentarlo.' % (n_articulos, p)
+    #     else: break
+    # aceptados, resto = CP.aceptarPorPais(p,n_articulos)
+    # print "ACEPTADOS POR PAIS"
+    # for x in aceptados:
+    #     print x
+    # print "ACEPTADOS POR NOTA/PAIS MENOS REPRESENTADO"
+    # for x in resto:
+    #     print x
 
-    Dibujamofo(dicc_plot_autor.keys(), dicc_plot_autor.values())
-    #Por topico
-    Dibujamofo(dicc_plot_topico.keys(), dicc_plot_topico.values())
 
-    #Por institucion
-    Dibujamofo(dicc_plot_inst.keys(), dicc_plot_inst.values())
+    # n1=0
+    # n2=1
+    # while n1<n2:
+    #     print "Primer punto de corte debe ser mayor que el segundo. \n"
+    #     n1 = float(raw_input("Ingrese el punto de corte: "))
+    #     n2 = float(raw_input("Ingrese el segundo punto de corte: "))
 
-    #Por pais
-    Dibujamofo(dicc_plot_pais.keys(), dicc_plot_pais.values())
+    # primer, segundo = CP.cortePorNota(n1,n2)
+    # # print 'ACEPTADOS PRIMER CORTE'
+    # # print '\n'.join([str(x) for x in primer])
+    # # print 'ACEPTADOS SEGUNDO CORTE'
+    # # print '\n'.join([str(x) for x in segundo])
+    # # primer, segundo = CP.proporcionalPorPaises(n_articulos)
+    primer = CP.proporcionalPorTopico(n_articulos)
+    print 'ACEPTADOS PRIMER CORTE'
+    print '\n'.join([str(x) for x in primer])
+    # print 'ACEPTADOS SEGUNDO CORTE'
+    # print '\n'.join([str(x) for x in segundo])
+
+    # CP.proporcionalPorTopico(n_articulos)
+
+    # Dibujamofo(dicc_plot_autor.keys(), dicc_plot_autor.values())
+    # #Por topico
+    # Dibujamofo(dicc_plot_topico.keys(), dicc_plot_topico.values())
+
+    # #Por institucion
+    # Dibujamofo(dicc_plot_inst.keys(), dicc_plot_inst.values())
+
+    # #Por pais
+    # Dibujamofo(dicc_plot_pais.keys(), dicc_plot_pais.values())
