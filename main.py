@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 toTopico = lambda x: set(Topico.getOrCreate(y) for y in commaSeparate(x))
 toDatetime = lambda x: datetime.strptime(x, '%d/%m/%Y')
 toAutor = lambda x: set(Autor.find(int(y)) for y in commaSeparate(x))
-
+toHour = lambda x: datetime.strptime(x, '%H:%M')
 
 #Funcion para dibujar los histogramas
 def Dibujamofo(eje_x,eje_y):
@@ -431,24 +431,117 @@ class Articulo(Model):
 #         self.telefono = telefono
 
 
-# class Evento(object):
-#     def __init__(self,fecha,hora_inicio,hora_fin):
-#         self.fecha = fecha
-#         self.hora_inicio = hora_inicio
-#         self.hora_fin = hora_fin
+class Evento(object):
 
-#     def Duracion(self):
-#         return self.hora_fin-self.hora_inicio
+    objects = {}
+    ponencia = {}
+    charla = {}
+    taller = {}
+    social = {}
 
-#     def GetLugar(self):
+    def __init__(self,nombre,fecha,hora_inicio,hora_fin,tipo):
+        self.nombre = nombre
+        self.fecha = fecha
+        self.hora_inicio = hora_inicio
+        self.hora_fin = hora_fin
+        self.tipo = tipo
 
-#     def GenerarPrograma(self):
+    def __hash__(self):
+        return hash(self.nombre)
 
-# class Lugar(object):
-#     def __init__(self,nombre,ubicacion,capacidad):
-#         self.nombre = nombre
-#         self.ubicacion = ubicacion
-#         self.capacidad = capacidad
+    def __eq__(self, other):
+        return other.nombre == self.nombre
+
+    def __str__(self):
+        tr = 'Nombre: %s\n'
+        return tr % (self.nombre)
+
+    def save(self):        
+        
+        self.pk = self.nombre
+        if self.tipo == 'ponencia':
+            Evento.ponencia[self.pk] = self
+        elif self.tipo == 'charla':
+            Evento.charla[self.pk] = self
+        elif self.tipo == 'taller':
+            Evento.taller[self.pk] = self
+        elif self.tipo == 'social':
+            Evento.social[self.pk] = self
+
+        Lugar.objects[self.pk] = self
+
+    @staticmethod
+    def readRaw():
+        return readRawValues(
+            ('nombre', ('Nombre: ', str, [notEmpty])),
+            ('fecha', ('Fecha del Evento [dd/mm/yyyy]: ', toDatetime, [afterToday])),
+            ('hora_inicio', ('Hora de Inicio [hh:mm]:', toHour, [])),
+            ('hora_fin', ('Hora de Fin:', toHour, [])),
+            ('tipo', ('Tipo de Evento [ponencia|charla|taller|social|apertura|clausura]:', str, [notEmpty])),
+        )
+
+    @classmethod
+    def read(cls):
+        values = Evento.readRaw()
+        print 'Indique el lugar donde se realizara el evento'
+        evento = Evento(values['nombre'],values['fecha'],values['hora_inicio'],values['hora_fin'],values['tipo'])
+        evento.setLugar(Lugar.read())
+        evento.save()
+        return evento
+
+    def Duracion(self):
+        return self.hora_fin-self.hora_inicio
+
+    def setLugar(self,lugar):
+        self.lugar = lugar
+
+class Lugar(Model):
+
+    objects = {}
+
+    def __init__(self,nombre,ubicacion,capacidad):
+        self.nombre = nombre
+        self.ubicacion = ubicacion
+        self.capacidad = capacidad
+
+    def __hash__(self):
+        return hash(self.nombre)
+
+    def __eq__(self, other):
+        return other.nombre == self.nombre
+
+    def __str__(self):
+        tr = 'Nombre: %s\n Ubicacion: %s\n Capacidad: %s'
+        return tr % (self.nombre, self.ubicacion, self.capacidad)
+
+    def save(self):
+        self.pk = self.nombre
+        Lugar.objects[self.pk] = self
+
+    @staticmethod
+    def readRaw():
+        return readRawValues(
+            ('nombre', ('Nombre del lugar: ', str, [notEmpty])),
+            ('ubicacion', ('Ubicacion: ', str, [notEmpty])),
+            ('capacidad', ('Capacidad:', str, [notEmpty])),
+        )
+
+    @classmethod
+    def read(cls):
+        values = Lugar.readRaw()
+        lugar = Lugar(values['nombre'],values['ubicacion'],values['capacidad'])
+        lugar.save()
+        return lugar
+
+    #funcion para buscar si un lugar ya existe o si hay que crearlo
+    @classmethod
+    def getOrCreate(cls, xid):
+        if xid in cls.objects:
+            return cls.objects[xid]
+        else:
+            l = cls(xid)
+            l.save()
+            return l
 
 
 

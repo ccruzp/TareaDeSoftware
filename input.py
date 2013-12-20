@@ -34,6 +34,7 @@ def afterToday(x):
 INFINITE = float('inf')
 notEmpty = valueLength(1, INFINITE)
 greaterThanZero = valueBetween(1, INFINITE)
+validTime = 
 
 #Elimina espacios vacios
 def splitter(x):
