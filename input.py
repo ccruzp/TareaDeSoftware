@@ -31,10 +31,13 @@ def valueBetween(x, y):
 def afterToday(x):
     return x > datetime.now()
 
+def afterDate(after, before):
+    return after > before
+
 INFINITE = float('inf')
 notEmpty = valueLength(1, INFINITE)
 greaterThanZero = valueBetween(1, INFINITE)
-validTime = 
+betweenOneAndFour = valueBetween(1, 4)
 
 #Elimina espacios vacios
 def splitter(x):
