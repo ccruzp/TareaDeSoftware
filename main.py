@@ -213,7 +213,7 @@ class Inscripcion(Persona):
 
     def __str__(self):
         return "[%d] %s %s %s %s %s %s" %(self.pk, self.nombre, self.apellido, self.dirPostal, self.telf, self.pagWeb, self.fecha.strftime("%d/%m/%Y"))
-
+        
 class CP(Model):
     '''Comite de Programa del CLEI'''
     objects = {}
@@ -279,7 +279,6 @@ class CP(Model):
             no_aceptados = cls.porPais[x][m:]
 
             return list(set(aceptados)), list(sorted(set(no_aceptados), key=lambda x:x.nota))
-
 
 
 class Clei(Model):
@@ -505,35 +504,60 @@ class Articulo(Model):
 ##################
 
 if __name__ == '__main__':
-    print '='*50
-    print "Bienvenido al CLEI"
-    print "Iniciando proceso de creacion de un nuevo CLEI"
-    print '='*50
-    clei = Clei.read()
-    clei.save()
-    print '='*50
+    # print '='*50
+    # print "Bienvenido al CLEI"
+    # print "Iniciando proceso de creacion de un nuevo CLEI"
+    # print '='*50
+    # clei = Clei.read()
+    # clei.save()
+    # print '='*50
     n = int(raw_input("Cuantas inscripciones hay?\n"))
     for i in range(n):
         print "Inscripcion #%d" %(i+1)
         inscripcion = Inscripcion.read()
         inscripcion.save()
 
-    # print "Lista de personas inscritas para solo charlas"
-    # for x in sorted(Inscripcion.charlas.values(), key=lambda x: x.pk):
-    #     print x
+    print "Lista de personas inscritas para solo charlas"
+    for x in sorted(Inscripcion.charlas.values(), key=lambda x: x.pk):
+        print x
+        for y in Inscripcion.charlas.values():
+            print x
+            print y
+            if x.__eq__(y):
+                print "Igual"
+            else:
+                print "Distinto"
 
-    # print "Lista de personas inscritas solo para talleres"
-    # for x in sorted(Inscripcion.talleres.values(), key=lambda x: x.pk):
-    #     print x
-
-    # print "Lista de persoans inscritas para charlas y talleres"
-    # for x in sorted(Inscripcion.charlasTalleres.values(), key=lambda x: x.pk):
-    #     print x
-
-    # print "Lista de personas inscritas con descuento"
-    # for x in sorted(Inscripcion.descuento.values(), key=lambda x: x.pk):
-    #     print x
-
+    print "Lista de personas inscritas solo para talleres"
+    for x in sorted(Inscripcion.talleres.values(), key=lambda x: x.pk):
+        print x
+        for y in Inscripcion.charlas.values():
+            print x
+            print y
+            if x.__eq__(y):
+                print "Igual"
+            else:
+                print "Distinto"
+    print "Lista de persoans inscritas para charlas y talleres"
+    for x in sorted(Inscripcion.charlasTalleres.values(), key=lambda x: x.pk):
+        print x
+        for y in Inscripcion.charlas.values():
+            print x
+            print y
+            if x.__eq__(y):
+                print "Igual"
+            else:
+                print "Distinto"
+    print "Lista de personas inscritas con descuento"
+    for x in sorted(Inscripcion.descuento.values(), key=lambda x: x.pk):
+        print x
+        for y in Inscripcion.charlas.values():
+            print x
+            print y
+            if x.__eq__(y):
+                print "Igual"
+            else:
+                print "Distinto"
     # n = int(raw_input("Cuantos autores hay? "))
     # print '='*50
     # for i in range(n):
