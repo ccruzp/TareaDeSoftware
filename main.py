@@ -1,5 +1,5 @@
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import OrderedDict, defaultdict
 from input import readRawValues, notEmpty, valueLength, commaSeparate, toDate, boolFormat, \
     greaterThanZero, afterToday, valueBetween, betweenOneAndFour
@@ -9,7 +9,11 @@ import matplotlib.pyplot as plt
 toTopico = lambda x: set(Topico.getOrCreate(y) for y in commaSeparate(x))
 toDatetime = lambda x: datetime.strptime(x, '%d/%m/%Y')
 toAutor = lambda x: set(Autor.find(int(y)) for y in commaSeparate(x))
-toHour = lambda x: datetime.strptime(x, '%H:%M')
+toModerador = lambda x: MiembroCP.find(int(x))
+toCharlista = lambda x: Persona.find(int(x))
+toHora = lambda x: datetime.strptime(x, '%H:%M')
+toLugar = lambda x: Lugar.find(str(x))
+toArticulo = lambda x: set(Articulo.find(str(y)) for y in commaSeparate(x))
 
 def representacionPorPais(articulo, count):
     # saca un promedio de la representacion de los paises de los
@@ -30,6 +34,11 @@ def obtenerCuentaPorPais(articulos):
                 countPaises[autor.pais] += 1
                 seen.add(autor.pais)
     return countPaises
+
+def horasCoinciden(horaIniA,horaFinA,horaIniB,horaFinB):
+    coincide = horaIniA <= horaIniB < horaFinA
+    coincide = coincide or (horaIniB <= horaIniA < horaFinB)
+    return coincide
 
 #Funcion para dibujar los histogramas
 def Dibujamofo(eje_x,eje_y):
@@ -192,6 +201,7 @@ class Inscripcion(Persona):
     talleres = {}
     charlasTalleres = {}
     descuento = {}
+    objects = {}
 
     def __init__(self, *args, **kwargs):
         self.dirPostal = kwargs.pop('dirPostal')
@@ -211,7 +221,7 @@ class Inscripcion(Persona):
             Inscripcion.charlasTalleres[self.pk] = self
         else:
             Inscripcion.descuento[self.pk] = self
-
+        Inscripcion.objects[self.pk] = self
 
     @staticmethod
     def readRaw():
@@ -414,18 +424,19 @@ class Clei(Model):
     '''CLEI'''
     objects = {}
     def __init__(self, fechaInscripcionDescuento, fechaInscripcion, 
-                 fechaTopeArticulo, fechaNotificacion, dias, tarifaReducida, 
-                 tarifaNormal):
+                 fechaTopeArticulo, fechaNotificacion, tarifaReducida, 
+                 tarifaNormal, fechaInicio):
         self.fechaInscripcionDescuento = fechaInscripcionDescuento
         self.fechaInscripcion = fechaInscripcion
         self.fechaTopeArticulo = fechaTopeArticulo
         self.fechaNotificacion = fechaNotificacion
-        self.dias = dias
         self.tarifaReducida = tarifaReducida
         self.tarifaNormal = tarifaNormal
         self.cp = None
         self.topicos = set()
         self.articulos = set()
+        self.fechaInicio = fechaInicio
+        self.dias = 5
 
     #Le colocamos al clei como clave la tripleta de las fechas de inscripcion
     #fecha tope de articulo y fecha de notificacion.
@@ -489,10 +500,10 @@ class Clei(Model):
             ('fechaInscripcionDescuento',('Fecha tope de Inscripcion con descuento [dd/mm/yyyy]: ', toDatetime, [afterToday]),),
             ('fechaTopeArticulo',('Fecha de Tope Articulos [dd/mm/yyyy]: ', toDatetime, [afterToday]),),
             ('fechaNotificacion',('Fecha de Notificacion [dd/mm/yyyy]: ', toDatetime, [afterToday]),),
-            ('dias',('Dias conferencia: ', int, [greaterThanZero]),),
             ('tarifaReducida',('Tarifa reducida: ', float, [greaterThanZero]),),
             ('tarifaNormal',('Tarifa normal: ', float, [greaterThanZero]),),
             ('topicos',('Lista de topicos CLEI (lista separado por coma [,]): ', toTopico, [notEmpty])),
+            ('fechaInicio',('Fecha de inicio del congreso [dd/mm/yyyy]: ', toDatetime, [afterToday]),),
         )
 
     @classmethod
@@ -615,19 +626,20 @@ class Articulo(Model):
             cls.porPais[pais] = list(reversed(sorted(set(cls.porPais[pais]),key= lambda x: x.nota)))
 
 
-class Evento(object):
+class Evento(Model):
 
+    '''
+    En Eventos aceptaremos aquellos que cumplan las condiciones del enunciado.
+    Si no es asi estaran en la clase respectica pero no aqui
+    '''
     objects = {}
-    ponencia = {}
-    charla = {}
-    taller = {}
-    social = {}
 
-    def __init__(self,nombre,fecha,hora_inicio,hora_fin,tipo):
+    def __init__(self,nombre=None,fecha=None,horaInicio=None,horaFin=None,lugar=None,tipo=None):
         self.nombre = nombre
         self.fecha = fecha
-        self.hora_inicio = hora_inicio
-        self.hora_fin = hora_fin
+        self.horaInicio = horaInicio
+        self.horaFin = horaFin
+        self.lugar = lugar
         self.tipo = tipo
 
     def __hash__(self):
@@ -640,53 +652,215 @@ class Evento(object):
         tr = 'Nombre: %s\n'
         return tr % (self.nombre)
 
-    def save(self):        
-        
-        self.pk = self.nombre
+    def save(self,clei):        
+        aceptar = True
+        if self.tipo == 'taller':
+            aceptar = aceptar and (self.fecha < (clei.fechaInicio + timedelta(days=2)))
         if self.tipo == 'ponencia':
-            Evento.ponencia[self.pk] = self
-        elif self.tipo == 'charla':
-            Evento.charla[self.pk] = self
-        elif self.tipo == 'taller':
-            Evento.taller[self.pk] = self
-        elif self.tipo == 'social':
-            Evento.social[self.pk] = self
+            aceptar = aceptar and ((clei.fechaInicio + timedelta(days=2)) <= self.fecha < (clei.fechaInicio + timedelta(days=5)))    
+        if aceptar and self.noCoincideHora():
+            self.pk = self.nombre
+            Evento.objects[self.pk] = self
+            return True
+        else:
+            print 'El evento ingresado coincide con uno ya existente en la fecha-hora y lugar indicada'
+            return False
 
-        Lugar.objects[self.pk] = self
+    def esActividad(self):
+        return self.tipo == 'taller' or self.tipo == 'ponencia' or self.tipo == 'charla'
+
+    def noCoincideHora(self):
+        aceptar = self.noCoincideSocial()
+        if aceptar: aceptar = aceptar and self.noCoincideApertura()
+        if aceptar: aceptar = aceptar and self.noCoincideClausura()
+        if aceptar and self.esActividad():        
+            values = Evento.objects.values()
+            for value in values:
+                if value.esActividad() and (value.fecha == self.fecha) and (value.lugar == self.lugar):
+                    aceptar = aceptar and not(horasCoinciden(self.horaInicio,self.horaFin,value.horaInicio,value.horaFin))
+        return aceptar
+
+    def noCoincideSocial(self):
+        aceptar = True
+        values = Social.objects.values()    
+        for value in values:
+            if value.fecha == self.fecha:
+                aceptar = aceptar and not horasCoinciden(self.horaInicio,self.horaFin,value.horaInicio,value.horaFin)
+        return aceptar
+
+    def noCoincideApertura(self):
+        aceptar = True
+        values = Apertura.objects.values()    
+        for value in values:
+            if value.fecha == self.fecha:
+                aceptar = aceptar and not horasCoinciden(self.horaInicio,self.horaFin,value.horaInicio,value.horaFin)
+        return aceptar
+
+    def noCoincideClausura(self):
+        aceptar = True
+        values = Clausura.objects.values()    
+        for value in values:
+            if value.fecha == self.fecha:
+                aceptar = aceptar and not horasCoinciden(self.horaInicio,self.horaFin,value.horaInicio,value.horaFin)
+        return aceptar
 
     @staticmethod
     def readRaw():
         return readRawValues(
             ('nombre', ('Nombre: ', str, [notEmpty])),
             ('fecha', ('Fecha del Evento [dd/mm/yyyy]: ', toDatetime, [afterToday])),
-            ('hora_inicio', ('Hora de Inicio [hh:mm]:', toHour, [])),
-            ('hora_fin', ('Hora de Fin:', toHour, [])),
-            ('tipo', ('Tipo de Evento [ponencia|charla|taller|social|apertura|clausura]:', str, [notEmpty])),
+            ('horaInicio', ('Hora de Inicio [hh:mm]:', toHora, [])),
+            ('horaFin', ('Hora de Fin:', toHora, [])),
+            ('lugar', ('Lugar donde se desarrollara el evento:', toLugar, []))
+        )
+
+    @classmethod
+    def read(cls):
+        while True:
+            values = Evento.readRaw()
+            dif = values['horaFin']-values['horaInicio']
+            if dif.days == 0:
+                return cls(**values)
+            else:
+                print 'La hora de finalizacion del evento debe ser mayor a la de inicio'
+
+
+class Taller(Evento):
+
+    objects = {}
+
+    def __init__(self, *args, **kwargs):
+        super(Taller, self).__init__(*args, **kwargs)
+
+    def save(self,clei):
+        if super(Taller, self).save(clei):
+            Taller.objects[self.pk] = self
+
+    @classmethod
+    def read(cls):
+        values = Evento.readRaw()
+        values.update({'tipo':'taller'})
+        return cls(**values)
+
+class Ponencia(Evento):
+
+    objects = {}
+
+    def __init__(self, *args, **kwargs):
+        self.articulos = kwargs.pop('articulos')
+        self.moderador = kwargs.pop('moderador')
+        self.ponentes = kwargs.pop('ponentes')
+        super(Ponencia, self).__init__(*args, **kwargs)
+
+    def save(self,clei):
+        if super(Ponencia, self).save(clei):
+            if 2 <= len(self.articulos) <= 4: 
+                Ponencia.objects[self.pk] = self
+            else:
+                print 'La ponencia no cumple con el min o el max de articulos permitidos'
+
+    @staticmethod
+    def readRaw():
+        return readRawValues(
+            ('articulos',('Lista de articulos presentados (separados por coma [,]) Minimo 2:Maximo 4: ', toArticulo, [notEmpty])),
+            ('ponentes',('Lista de ponentes (separados los ID por coma [,]): ', toAutor, [])),
+            ('moderador',('Moderador de la ponencia (ID del miembro del CP): ', toModerador, [])),
         )
 
     @classmethod
     def read(cls):
         values = Evento.readRaw()
-        print 'Indique el lugar donde se realizara el evento'
-        evento = Evento(values['nombre'],values['fecha'],values['hora_inicio'],values['hora_fin'],values['tipo'])
-        evento.setLugar(Lugar.read())
-        evento.save()
-        return evento
+        values.update(Ponencia.readRaw())
+        values.update({'tipo':'ponencia'})
+        return cls(**values)
 
-    def Duracion(self):
-        return self.hora_fin-self.hora_inicio
+class Charla(Evento):
 
-    def setLugar(self,lugar):
-        self.lugar = lugar
+    objects = {}
+
+    def __init__(self, *args, **kwargs):
+        self.moderador = kwargs.pop('moderador')
+        self.charlista = kwargs.pop('charlista')
+        super(Charla, self).__init__(*args, **kwargs)
+
+    def save(self,clei):
+        if super(Charla, self).save(clei):
+            Charla.objects[self.pk] = self
+
+    @staticmethod
+    def readRaw():
+        return readRawValues(
+            ('charlista',('Charlista(ID): ', toCharlista, [])),
+            ('moderador',('Moderador de la ponencia (ID del miembro del CP): ', toModerador, [])),
+        )
+
+    @classmethod
+    def read(cls):
+        values = Evento.readRaw()
+        values.update(Charla.readRaw())
+        values.update({'tipo':'charla'})
+        return cls(**values)
+
+class Social(Evento):
+
+    objects = {}
+
+    def __init__(self, *args, **kwargs):
+        super(Social, self).__init__(*args, **kwargs)
+
+    def save(self,clei):
+        if super(Social, self).save(clei):
+            Social.objects[self.pk] = self
+
+    @classmethod
+    def read(cls):
+        values = Evento.readRaw()
+        values.update({'tipo':'social'})
+        return cls(**values)
+
+class Apertura(Evento):
+
+    objects = {}
+
+    def __init__(self, *args, **kwargs):
+        super(Apertura, self).__init__(*args, **kwargs)
+
+    def save(self,clei):
+        if super(Apertura, self).save(clei):
+            Apertura.objects[self.pk] = self
+
+    @classmethod
+    def read(cls):
+        values = Evento.readRaw()
+        values.update({'tipo':'apertura'})
+        return cls(**values)
+
+class Clausura(Evento):
+
+    objects = {}
+
+    def __init__(self, *args, **kwargs):
+        super(Clausura, self).__init__(*args, **kwargs)
+
+    def save(self,clei):
+        if super(Clausura, self).save(clei):
+            Clausura.objects[self.pk] = self
+
+    @classmethod
+    def read(cls):
+        values = Evento.readRaw()
+        values.update({'tipo':'clausura'})
+        return cls(**values)
 
 class Lugar(Model):
 
     objects = {}
-
+    
     def __init__(self,nombre,ubicacion,capacidad):
         self.nombre = nombre
         self.ubicacion = ubicacion
         self.capacidad = capacidad
+        self.eventos = set()
 
     def __hash__(self):
         return hash(self.nombre)
@@ -707,7 +881,7 @@ class Lugar(Model):
         return readRawValues(
             ('nombre', ('Nombre del lugar: ', str, [notEmpty])),
             ('ubicacion', ('Ubicacion: ', str, [notEmpty])),
-            ('capacidad', ('Capacidad:', str, [notEmpty])),
+            ('capacidad', ('Capacidad:', int, [greaterThanZero])),
         )
 
     @classmethod
@@ -717,16 +891,6 @@ class Lugar(Model):
         lugar.save()
         return lugar
 
-    #funcion para buscar si un lugar ya existe o si hay que crearlo
-    @classmethod
-    def getOrCreate(cls, xid):
-        if xid in cls.objects:
-            return cls.objects[xid]
-        else:
-            l = cls(xid)
-            l.save()
-            return l
-
 
 ##################
 #    Interface   #
@@ -734,217 +898,266 @@ class Lugar(Model):
 
 if __name__ == '__main__':
 
-    '''
+    
+    ######################## CLEI & LOCACIONES ####################
     print '='*50
     print "Bienvenido al CLEI"
     print "Iniciando proceso de creacion de un nuevo CLEI"
     print '='*50
     clei = Clei.read()
     clei.save()
-    print '='*50
-    n = int(raw_input("Cuantas inscripciones hay?\n"))
-    for i in range(n):
 
-        print "Autor #%d" % (i+1)
+    n = int(raw_input("Indique el numero de locaciones: "))
+    for i in range(n):
+        print "\nLocacion #%d" %(i+1)
+        print '='*50
+        lugar = Lugar.read()
+        lugar.save()
+        
+    print "\nLista de locaciones"
+    for x in sorted(Lugar.objects.values(), key=lambda x: x.pk):
+        print x
+
+    print '='*50
+
+    ######################## ARTICULOS ############################
+
+    print "\nProceso de carga de articulos"
+    print '='*50
+    n = int(raw_input("\nIndique el numero de autores: "))
+    for i in range(n):
+        print "\nAutor #%d" % (i+1)
+        print '='*50
         autor = Autor.read()
         autor.save()
-    print '='*50
-    print 'Lista de autores registrados'
-    print '='*50
+    print '\nLista de autores registrados'
     for x in sorted(Autor.objects.values(), key=lambda x: x.pk):
         print x
     print '='*50
-    print 'Articulos'
+    n = int(raw_input("Indique el numero de articulos "))
     print '='*50
-    n = int(raw_input("Cuantos articulos hay? "))
     for i in range(n):
         art = Articulo.read(clei)
         art.save()
-    print '='*50
-    print 'Lista de articulos registrados con sus autores'
+        print '='*50
+
+    print '\nLista de articulos registrados con sus autores'
     for art in Articulo.objects.values():
         print art
-    print '='*50
-    print "Haciendo una asignacion aleatoria de articulos..."
+
+    print "\nHaciendo una asignacion aleatoria de articulos..."
     clei.asignarArticulos()
+
+    ######################### EVALUACION ###########################
     print '='*50
     print 'Proceso de evaluacion'
     print '='*50
     print 'A continuacion para cada miembro del CP se presentaran los articulos que debe evaluar y se preguntara para cada uno la nota'
     for miembrocp in clei.cp.miembros:
-        print '-'*50
+        print '='*50
         print 'Articulos asignados a %s %s' % (miembrocp.nombre, miembrocp.apellido)
-        print '-'*50
         for art in miembrocp.correcciones.keys():
             nota = random.randint(1, 5)
             print art, nota
 
-            # values = readRawValues(
-            #     ('nota', ('Nota asignada [1-5]: ', int, [valueBetween(1, 5)]))
-            # )
-            # miembrocp.evaluarArticulo(art, values['nota'])
+            values = readRawValues(
+                ('nota', ('Nota asignada [1-5]: ', int, [valueBetween(1, 5)]))
+            )
+            miembrocp.evaluarArticulo(art, values['nota'])
             miembrocp.evaluarArticulo(art, nota)
 
-    # TODO: No preguntar si es por cortes.
-    #n_articulos = int(raw_input("Numero de articulos a aceptar?"))
+    print '='*50
+    n_articulos = int(raw_input("Indique el numero de articulo que se aceptaran: "))
+    print '='*50
 
-    #print "Inscripcion #%d" %(i+1)
-    #inscripcion = Inscripcion.read()
-    #inscripcion.save()
-
-    # print "Lista de personas inscritas para solo charlas"
-    # for x in sorted(Inscripcion.charlas.values(), key=lambda x: x.pk):
-    #     print x
-
-    # print "Lista de personas inscritas solo para talleres"
-    # for x in sorted(Inscripcion.talleres.values(), key=lambda x: x.pk):
-    #     print x
-
-    # print "Lista de persoans inscritas para charlas y talleres"
-    # for x in sorted(Inscripcion.charlasTalleres.values(), key=lambda x: x.pk):
-    #     print x
-
-    # print "Lista de personas inscritas con descuento"
-    # for x in sorted(Inscripcion.descuento.values(), key=lambda x: x.pk):
-    #     print x
-
-    # n = int(raw_input("Cuantos autores hay? "))
-    # print '='*50
-    # for i in range(n):
-    #     print "Autor #%d" % (i+1)
-    #     autor = Autor.read()
-    #     autor.save()
-    # print '='*50
-    # print 'Lista de autores registrados'
-    # print '='*50
-    # for x in sorted(Autor.objects.values(), key=lambda x: x.pk):
-    #     print x
-    # print '='*50
-    # print 'Articulos'
-    # print '='*50
-    # n = int(raw_input("Cuantos articulos hay? "))
-    # for i in range(n):
-    #     art = Articulo.read(clei)
-    #     art.save()
-    # print '='*50
-    # print 'Lista de articulos registrados con sus autores'
-    # for art in Articulo.objects.values():
-    #     print art
-    # print '='*50
-    # print "Haciendo una asignacion aleatoria de articulos..."
-    # clei.asignarArticulos()
-    # print '='*50
-    # print 'Proceso de evaluacion'
-    # print '='*50
-    # print 'A continuacion para cada miembro del CP se presentaran los articulos que debe evaluar y se preguntara para cada uno la nota'
-    # for miembrocp in clei.cp.miembros:
-    #     print '-'*50
-    #     print 'Articulos asignados a %s %s' % (miembrocp.nombre, miembrocp.apellido)
-    #     print '-'*50
-    #     for art in miembrocp.correcciones.keys():
-    #         print art
-    #         values = readRawValues(
-    #             ('nota', ('Nota asignada [1-5]: ', int, [valueBetween(1, 5)]))
-    #         )
-    #         miembrocp.evaluarArticulo(art, values['nota'])
-    # n_articulos = int(raw_input("Numero de articulos a aceptar?"))
-
-    # aceptados, empatados = clei.particionarArticulos(n_articulos)
-    # print '='*50
-    # print 'Articulos aceptados'
-    # print '='*50
-    # for art in aceptados:
-    #     print '%s\nNota: %f' % (art, art.nota)
-    # print '='*50
-    # print 'Articulos empatados'
-    # print '='*50
-    # for art in empatados:
-    #     print '%s\nNota: %f' % (art, art.nota)
-
-    # #Histogramas
-    # #Por autor
-    # dicc_plot_autor = {}
-    # dicc_plot_topico= {}
-    # dicc_plot_inst = {}
-    # dicc_plot_pais= {}
-
-    # for art in aceptados:
-
-    #     for topico in art.topicos:
-    #         if topico.nombre not in dicc_plot_topico:
-    #             dicc_plot_topico[topico.nombre] = 0
-    #         dicc_plot_topico[topico.nombre] +=1
-
-    #     for autor in art.autores:
-    #         nombre_completo = '%s %s' % (autor.nombre, autor.apellido)
-    #         if nombre_completo not in dicc_plot_autor:
-    #             dicc_plot_autor[nombre_completo] = 0
-    #         dicc_plot_autor[nombre_completo] += 1
-
-
-    #         if autor.institucion not in dicc_plot_inst:
-    #             dicc_plot_inst[autor.institucion] = 0
-    #         dicc_plot_inst[autor.institucion] +=1
-
-    #         if autor.pais not in dicc_plot_pais:
-    #             dicc_plot_pais[autor.pais] = 0
-    #         dicc_plot_pais[autor.pais] +=1
-
-    # print '='*50
-
+    print '='*50
+    print 'Hay diversas maneras de aceptar los articulos en el CLEI:'
+    print '1 - Por promedio y desempate del Presidente del CP'
+    print '2 - Por un minimo de articulos por pais y desempate entre los menos representados'
+    print '3 - Por corte de nota:'
+    print '\tNota 1: Emplea el esquema 1 a partir de la nota indicada '
+    print '\tNota 2: Prioridad por paises menos representados a partir de esa nota '
+    print '4 - Proporcional por Pais'
+    print '5 - Proporcional por Topico'
+    opcion = 0
+    while not (0 < opcion < 6):
+        opcion = int(raw_input("Indique como quiere aceptar los articulos: "))
+    
+    print '='*50    
+    
     Articulo.agruparPorPais()
     Articulo.agruparPorTopico()
-    # paises_diferentes = len(Articulo.porPais)
-    # print 'Hay %d paises diferentes: ' % paises_diferentes
-    # print '\n'.join(Articulo.porPais.keys())
-    # while True:
-    #     p = int(raw_input("Ingrese minimo de articulos a aceptar por pais: "))
-    #     if paises_diferentes*p > n_articulos:
-    #         print 'Previamente dijiste que querias aceptar %d articulos. Obligar al menos %d por pais *potencialmente* excede ese numero, vuelve a intentarlo.' % (n_articulos, p)
-    #     else: break
-    # aceptados, resto = CP.aceptarPorPais(p,n_articulos)
-    # print "ACEPTADOS POR PAIS"
-    # for x in aceptados:
-    #     print x
-    # print "ACEPTADOS POR NOTA/PAIS MENOS REPRESENTADO"
-    # for x in resto:
-    #     print x
+
+    if opcion == 1:
+
+        aceptados, empatados = clei.particionarArticulos(n_articulos)
+        print '='*50
+        print 'Articulos aceptados'
+        print '='*50
+        for art in aceptados:
+            print '%s\nNota: %f' % (art, art.nota)
+        print '='*50
+        print 'Articulos empatados'
+        print '='*50
+        for art in empatados:
+            print '%s\nNota: %f' % (art, art.nota)
 
 
-    # n1=0
-    # n2=1
-    # while n1<n2:
-    #     print "Primer punto de corte debe ser mayor que el segundo. \n"
-    #     n1 = float(raw_input("Ingrese el punto de corte: "))
-    #     n2 = float(raw_input("Ingrese el segundo punto de corte: "))
-
-    # primer, segundo = CP.cortePorNota(n1,n2)
-    # # print 'ACEPTADOS PRIMER CORTE'
-    # # print '\n'.join([str(x) for x in primer])
-    # # print 'ACEPTADOS SEGUNDO CORTE'
-    # # print '\n'.join([str(x) for x in segundo])
-    # # primer, segundo = CP.proporcionalPorPaises(n_articulos)
-    primer = CP.proporcionalPorTopico(n_articulos)
-    print 'ACEPTADOS PRIMER CORTE'
-    print '\n'.join([str(x) for x in primer])
-    # print 'ACEPTADOS SEGUNDO CORTE'
-    # print '\n'.join([str(x) for x in segundo])
-
-    # CP.proporcionalPorTopico(n_articulos)
-
-    # p = int(raw_input("Ingrese minimo de articulos a aceptar por pais: "))
-    # # Articulo.agruparPorPais();
-    # # CP.aceptarPorPais(p)
+    if opcion == 2:
+        paises_diferentes = len(Articulo.porPais)
+        print 'Hay %d paises diferentes: ' % paises_diferentes
+        print '\n'.join(Articulo.porPais.keys())
+        while True:
+            p = int(raw_input("Ingrese minimo de articulos a aceptar por pais: "))
+            if paises_diferentes*p > n_articulos:
+                print 'Previamente dijiste que querias aceptar %d articulos. Obligar al menos %d por pais *potencialmente* excede ese numero, vuelve a intentarlo.' % (n_articulos, p)
+            else: break
+        aceptados, resto = CP.aceptarPorPais(p,n_articulos)
+        print "ACEPTADOS POR PAIS"
+        for x in aceptados:
+            print x
+        print "ACEPTADOS POR NOTA/PAIS MENOS REPRESENTADO"
+        for x in resto:
+            print x
 
 
-    # Dibujamofo(dicc_plot_autor.keys(), dicc_plot_autor.values())
-    # #Por topico
-    # Dibujamofo(dicc_plot_topico.keys(), dicc_plot_topico.values())
+    if opcion == 3:
+        n1=0
+        n2=1
+        while n1<n2:
+            print "Primer punto de corte debe ser mayor que el segundo. \n"
+            n1 = float(raw_input("Ingrese el punto de corte: "))
+            n2 = float(raw_input("Ingrese el segundo punto de corte: "))
 
-    # #Por institucion
-    # Dibujamofo(dicc_plot_inst.keys(), dicc_plot_inst.values())
 
-    # #Por pais
-    # Dibujamofo(dicc_plot_pais.keys(), dicc_plot_pais.values())
+        primer, segundo = CP.cortePorNota(n1,n2)
+        print 'ACEPTADOS PRIMER CORTE'
+        print '\n'.join([str(x) for x in primer])
+        print 'ACEPTADOS SEGUNDO CORTE'
+        print '\n'.join([str(x) for x in segundo])
+
+    if opcion == 4:
+        primer, segundo = CP.proporcionalPorPaises(n_articulos)
+        print 'ACEPTADOS PRIMER CORTE'
+        print '\n'.join([str(x) for x in primer])
+        print 'ACEPTADOS SEGUNDO CORTE'
+        print '\n'.join([str(x) for x in segundo])
+
+    if opcion == 5:
+        primer = CP.proporcionalPorTopico(n_articulos)
+        print 'ACEPTADOS PRIMER CORTE'
+        print '\n'.join([str(x) for x in primer])
+
     '''
+    #Histogramas
+    #Por autor
+    dicc_plot_autor = {}
+    dicc_plot_topico= {}
+    dicc_plot_inst = {}
+    dicc_plot_pais= {}
+
+    for art in aceptados:
+
+        for topico in art.topicos:
+            if topico.nombre not in dicc_plot_topico:
+                dicc_plot_topico[topico.nombre] = 0
+            dicc_plot_topico[topico.nombre] +=1
+
+        for autor in art.autores:
+            nombre_completo = '%s %s' % (autor.nombre, autor.apellido)
+            if nombre_completo not in dicc_plot_autor:
+                dicc_plot_autor[nombre_completo] = 0
+            dicc_plot_autor[nombre_completo] += 1
+
+
+            if autor.institucion not in dicc_plot_inst:
+                dicc_plot_inst[autor.institucion] = 0
+            dicc_plot_inst[autor.institucion] +=1
+
+            if autor.pais not in dicc_plot_pais:
+                dicc_plot_pais[autor.pais] = 0
+            dicc_plot_pais[autor.pais] +=1
+
+    Dibujamofo(dicc_plot_autor.keys(), dicc_plot_autor.values())
+    #Por topico
+    Dibujamofo(dicc_plot_topico.keys(), dicc_plot_topico.values())
+
+    #Por institucion
+    Dibujamofo(dicc_plot_inst.keys(), dicc_plot_inst.values())
+
+    #Por pais
+    Dibujamofo(dicc_plot_pais.keys(), dicc_plot_pais.values())
+    print '='*50
+    '''
+
+    ##################### INSCRIPCION ###############################
+    print '='*50
+    print "Proceso de Inscripcion"
+    print '='*50
+    n = int(raw_input("Indique el numero de inscripciones: "))
+    for i in range(n):
+        print "Inscripcion #%d" %(i+1)
+        inscripcion = Inscripcion.read()
+        inscripcion.save()
+
+    print "Lista de personas inscritas para solo charlas"
+    for x in sorted(Inscripcion.charlas.values(), key=lambda x: x.pk):
+        print x
+
+    print "Lista de personas inscritas solo para talleres"
+    for x in sorted(Inscripcion.talleres.values(), key=lambda x: x.pk):
+        print x
+
+    print "Lista de persoans inscritas para charlas y talleres"
+    for x in sorted(Inscripcion.charlasTalleres.values(), key=lambda x: x.pk):
+        print x
+
+    print "Lista de personas inscritas con descuento"
+    for x in sorted(Inscripcion.descuento.values(), key=lambda x: x.pk):
+        print x
+
+
+    ########################## EVENTOS ###############################
+    print '='*50
+    print "Proceso de Planificacion de Eventos"
+    print '='*50
+    print 'Apertura del CLEI'
+    apertura = Apertura.read()
+    apertura.save(clei)
+    print '='*50
+    print 'Clausura del CLEI'
+    clausura = Clausura.read()
+    clausura.save(clei)
+    print '='*50
+    print 'Eventos Sociales del CLEI'
+    n = int(raw_input("Indique el numero de eventos sociales: "))
+    for i in range(n):
+        social = Social.read()
+        social.save(clei)
+    print '='*50
+    print 'Talleres del CLEI (Primeros dos dias del CLEI)'
+    n = int(raw_input("Indique el numero de talleres: "))
+    for i in range(n):
+        taller = Taller.read()
+        taller.save(clei)
+    print '='*50
+    print 'Ponencias del CLEI (Ultimos tres dias del CLEI)'
+    n = int(raw_input("Indique el numero de ponencias: "))
+    for i in range(n):
+        ponencia = Ponencia.read()
+        ponencia.save(clei)
+    print '='*50
+    print 'Charla del CLEI'
+    n = int(raw_input("Indique el numero de charlas: "))
+    for i in range(n):
+        charla = Charla.read()
+        charla.save(clei)
+    print '='*50
+    print "Programa de eventos del CLEI"
+    print '='*50
+    for x in sorted(Evento.objects.values(), key=lambda x: x.pk):
+        print x    
+    print '='*50
+
+
     

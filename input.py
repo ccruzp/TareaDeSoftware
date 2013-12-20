@@ -13,7 +13,7 @@ def readValue(ask_string, format_function, *validators):
             if validate(tr, *validators):
                 return tr
             else:
-                print "La entrada que introduciste no es valida."
+                print "La entrada no es valida."
                 continue
         except ValueError:
             print 'La entrada que introduciste no sigue el formato esperado'
@@ -48,6 +48,7 @@ def splitter(x):
 commaSeparate = splitter(',')
 boolFormat = lambda x: x == 's'
 toDate = lambda x: datetime.strptime(x, '%d/%m/%Y')
+toHora = lambda x: datetime.strptime(x, '%H:%M')
 
 def readRawValues(*args):
     raw_values = {}
