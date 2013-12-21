@@ -80,6 +80,10 @@ class TestMiembroCP(GeneralClassTest):
             self.assertTrue(articulo.nota == (sumatoria+notaAgregada)/float(evaluacionesPrevias+1))
 
 
+class TestLugar(GeneralClassTest):
+    classTest = Lugar
+    fixtures = LugarFixture(Lugar)
+
 class TestAutor(GeneralClassTest):
     classTest = Autor
     fixtures = AutorFixture(Autor)
@@ -129,6 +133,12 @@ class TestClei(GeneralClassTest):
         clei =         self.instances[0]
         clei.agregarTopico(topico)
         self.assertTrue(topico in clei.topicos)
+
+
+class TestInscripcion(GeneralClassTest):
+    classTest = Persona
+    fixtures = IncripcionFixture(Inscripcion)
+
 
 class TestAsignacionEvaluacion(unittest.TestCase):
     def setUp(self):
@@ -189,6 +199,10 @@ class TestAsignacionEvaluacion(unittest.TestCase):
         self.assertTrue(articulos[len(aceptados):len(aceptados)+len(empatados)] == empatados)
 
 
+class TestEvento(GeneralClassTest):
+    classTest = Evento
+    fixtures = EventoFixture(Evento)
+
 class TestArticulo(GeneralClassTest):
     classTest = Articulo
     fixtures = ArticuloFixture(Articulo)
@@ -198,6 +212,20 @@ class TestArticulo(GeneralClassTest):
             x.agregarTopico(topico)
             self.assertTrue(topico in x.topicos)
             self.assertTrue(x in topico.articulos)
+    def testAgruparPorPais(self):
+        paises = {}
+        for x in self.instances:
+            for y in x.autores:
+                if y.pais not in paises:
+                    paises.append(y.pais)
+        self.assertTrue(len(Articulo.count_paises) == len(paises))
+
+    def testAgruparPorTopico(self):
+        topicos = {}
+        for x in self.instances:
+            for y in x.topicos:
+                topicos.append(y)
+        self.assertTrue(len(Articulo.porTopico) == len(topicos))
 
 def load_tests(loader, standard_tests, pattern):
     suite = unittest.TestSuite()
@@ -209,6 +237,9 @@ def load_tests(loader, standard_tests, pattern):
     suite.addTests(loader.loadTestsFromTestCase(TestClei))
     suite.addTests(loader.loadTestsFromTestCase(TestArticulo))
     suite.addTests(loader.loadTestsFromTestCase(TestAsignacionEvaluacion))
+    suite.addTests(loader.loadTestsFromTestCase(TestEvento))
+    suite.addTests(loader.loadTestsFromTestCase(TestLugar))
+    suite.addTests(loader.loadTestsFromTestCase(TestInscripcion))
     return suite
 
 if __name__ == '__main__':

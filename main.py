@@ -652,7 +652,7 @@ class Evento(Model):
         tr = 'Nombre: %s\n'
         return tr % (self.nombre)
 
-    def save(self,clei):        
+    def save(self):        
         aceptar = True
         if self.tipo == 'taller':
             aceptar = aceptar and (self.fecha < (clei.fechaInicio + timedelta(days=2)))
